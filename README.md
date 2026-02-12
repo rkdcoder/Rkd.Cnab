@@ -5,7 +5,7 @@
 </p>
 
 [![NuGet](https://img.shields.io/nuget/v/Rkd.Cnab.svg)](https://www.nuget.org/packages/Rkd.Cnab)
-[![Build & Publish](https://github.com/rkdcoder/Rkd.Cnab/actions/workflows/master.yml/badge.svg)](https://github.com/rkdcoder/Rkd.Cnab/actions/workflows/master.yml)
+[![Build & Publish](https://github.com/rkdcoder/Rkd.Cnab/actions/workflows/main.yml/badge.svg)](https://github.com/rkdcoder/Rkd.Cnab/actions/workflows/main.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Rkd.Cnab** é uma biblioteca .NET leve, previsível e orientada a configuração para **processamento de arquivos CNAB (240 / 400)**.
