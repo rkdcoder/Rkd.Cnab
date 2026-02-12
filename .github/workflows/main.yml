@@ -3,7 +3,7 @@ name: Build, Test and Deploy Rkd.Cnab Package
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   build-test-pack-publish:
