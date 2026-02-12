@@ -1,0 +1,56 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <PackageId>Rkd.Cnab</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Rodrigo Kmiecik</Authors>
+    <Company>rkd.com.br</Company>
+    <Product>Rkd.Cnab NuGet</Product>
+
+    <PackageDescription>Flexible and configuration-driven CNAB to JSON converter for .NET. Provides a static, high-performance API (no DI required) that parses banking files based on layouts defined in appsettings.json. Returns a standardized response with validation flags (Success, CompletelyConverted) and structured data, handling Headers, Details, and Trailers dynamically without hardcoded logic.</PackageDescription>
+
+    <Description>
+      Rkd.Cnab is a lightweight, configuration-driven .NET library for parsing Brazilian CNAB banking files (CNAB240 / CNAB400).
+      The library uses fully externalized layouts defined in appsettings.json and converts fixed-length CNAB files into structured, predictable JSON results.
+      
+      Key characteristics:
+      Instance-based API using IConfiguration (no static helpers, no DI framework required)
+      Composite record identification (real CNAB support)
+      Fail-fast structural validation and resilient line-by-line processing
+      Structured response with audit metadata and detailed error reporting
+      Suitable for Console apps, Worker Services and ASP.NET Core (.NET 8+)
+      Configuration-driven CNAB (240/400) parser for .NET. Parses banking files using external JSON layouts, supports composite record identification, and returns structured, audit-friendly results with validation flags and detailed error reporting.
+    </Description>
+
+    <RepositoryUrl>https://github.com/rkdcoder/Rkd.Cnab</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/rkdcoder/Rkd.Cnab</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageIcon>icon.png</PackageIcon>
+    <ReadMe>README.md</ReadMe>
+
+    <Title>Rkd.Cnab</Title>
+    <Summary>Configuration-driven CNAB parser for .NET with composite record identification and structured JSON output.</Summary>
+    <PackageTags>cnab cnab240 cnab400 febraban banking parser json remessa retorno brasil finance</PackageTags>
+
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="Media\icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
