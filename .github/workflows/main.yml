@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - master
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
 
 jobs:
   build-test-pack-publish:
@@ -13,22 +19,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up .NET Core
+      # O SDK 10 é necessário para restaurar o Rkd.Cnab.slnx (formato suportado a partir do SDK 9.0.200).
+      # O runtime 8.0 é necessário para executar os testes (net8.0).
+      - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Restore dependencies
         run: dotnet restore
 
       - name: Build (Release)
-        run: dotnet build --configuration Release
+        run: dotnet build --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test
+        run: dotnet test --configuration Release --no-build
 
       - name: Pack NuGet package
-        run: dotnet pack --configuration Release
+        run: dotnet pack src/Rkd.Cnab/Rkd.Cnab.csproj --configuration Release --no-build --output ./artifacts
 
       - name: Publish to NuGet.org
-        run: dotnet nuget push "src/Rkd.Cnab/bin/Release/*.nupkg" -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: dotnet nuget push "./artifacts/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Publish symbols to NuGet.org
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: dotnet nuget push "./artifacts/*.snupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
