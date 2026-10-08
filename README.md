@@ -6,7 +6,8 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Rkd.Cnab.svg)](https://www.nuget.org/packages/Rkd.Cnab)
 [![Build & Publish](https://github.com/rkdcoder/Rkd.Cnab/actions/workflows/main.yml/badge.svg)](https://github.com/rkdcoder/Rkd.Cnab/actions/workflows/main.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Rkd.Cnab.svg)](https://www.nuget.org/packages/Rkd.Cnab)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/rkdcoder/Rkd.Cnab/blob/master/LICENSE)
 
 **Rkd.Cnab** é uma biblioteca .NET leve, previsível e orientada a configuração para **processamento de arquivos CNAB (240 / 400)**.
 
@@ -20,11 +21,11 @@ O foco da biblioteca é **engenharia prática**: layouts totalmente externos, to
 
 - **Orientado a Configuração**: layouts definidos integralmente via `appsettings.json`.
 - **Identificação Composta**: suporte nativo a múltiplas regras de identificação por linha (CNAB real).
-- **Fail-fast estrutural**: erros de configuração ou layout inexistente falham imediatamente.
+- **Fail-fast estrutural**: layout mal configurado falha já na criação do `CnabConverter` (veja "Validação do layout" abaixo).
 - **Processamento resiliente**: linhas inválidas não interrompem o processamento.
 - **Resposta auditável**: dados convertidos + lista de erros + metadados.
 - **Sem `dynamic`**: estrutura previsível, segura e amigável ao consumidor.
-- **Pronto para NuGet e produção**.
+- **Leve**: depende apenas de `Microsoft.Extensions.Configuration.Binder`; alvo `net8.0` (compatível com .NET 8, 9 e 10).
 
 ---
 
@@ -41,6 +42,9 @@ Via **.NET CLI**:
 ```bash
 dotnet add package Rkd.Cnab
 ```
+
+> Em aplicações **console** (sem o host padrão do ASP.NET Core / Worker Service) é preciso referenciar também
+> `Microsoft.Extensions.Configuration.Json` para carregar o `appsettings.json` — veja o exemplo de Console em "Como Usar".
 
 ---
 
@@ -92,29 +96,50 @@ A biblioteca lê automaticamente a seção **`CnabConfiguration`** da aplicaçã
 ### Glossário da Configuração
 
 - **Layouts**: conjunto de layouts suportados pela aplicação.
-- **Nome**: identificador lógico do layout (usado no código).
-- **TamanhoLinha**: tamanho fixo da linha CNAB.
-- **Objetos**: tipos de registros (header, detalhe, trailer, segmentos).
-- **Identificadores**: regras **AND** para reconhecer a linha (posição + valor).
-- **Atributos**: mapeamento posicional dos campos (base 1).
+- **Nome**: identificador lógico do layout (usado no código; não diferencia maiúsculas/minúsculas).
+- **TamanhoLinha**: tamanho fixo da linha CNAB (linhas com outro tamanho viram erro).
+- **Objetos**: tipos de registros (header, detalhe, trailer, segmentos). Vale o **primeiro** objeto cujos identificadores casarem.
+- **Identificadores**: regras **AND** para reconhecer a linha (posição base 1 + valor; comparação exata, diferencia maiúsculas/minúsculas).
+- **Atributos**: mapeamento posicional dos campos (`De`/`Ate` base 1, inclusivos). Os valores são retornados com `Trim()`.
+
+### 🛡️ Validação do layout
+
+Ao criar o `CnabConverter`, o layout é validado e uma `InvalidOperationException` descritiva é lançada se houver:
+
+- seção `CnabConfiguration` ausente ou sem layouts;
+- layout sem `Nome` (ou com nome duplicado) ou com `TamanhoLinha` ≤ 0;
+- objeto sem `Nome`, com nome duplicado ou **sem identificadores** (casaria com qualquer linha);
+- identificador sem `Valor` ou que ultrapasse o `TamanhoLinha`;
+- atributo sem `Nome`, duplicado, ou com intervalo inválido (`De` < 1, `Ate` < `De` ou `Ate` > `TamanhoLinha`).
 
 ---
 
 ## 💻 Como Usar
 
+O `CnabConverter` é **imutável e thread-safe** após criado: registre-o como **singleton** (ou mantenha uma única instância).
+Ele recebe um `IConfiguration` e expõe `Convert(string conteudoArquivo, string nomeLayout)`.
+
 ### ASP.NET Core (exemplo recomendado)
 
-#### 1️⃣ Modelo de Upload
+#### 1️⃣ Registro (`Program.cs`)
+
+```csharp
+using Rkd.Cnab;
+
+builder.Services.AddSingleton(sp => new CnabConverter(sp.GetRequiredService<IConfiguration>()));
+```
+
+#### 2️⃣ Modelo de Upload
 
 ```csharp
 public class CnabUploadModel
 {
-    public IFormFile Arquivo { get; set; }
-    public string Layout { get; set; }
+    public IFormFile Arquivo { get; set; } = default!;
+    public string Layout { get; set; } = default!;
 }
 ```
 
-#### 2️⃣ Controller
+#### 3️⃣ Controller
 
 ```csharp
 using Microsoft.AspNetCore.Mvc;
@@ -126,9 +151,9 @@ public class CnabController : ControllerBase
 {
     private readonly CnabConverter _converter;
 
-    public CnabController(IConfiguration configuration)
+    public CnabController(CnabConverter converter)
     {
-        _converter = new CnabConverter(configuration);
+        _converter = converter;
     }
 
     [HttpPost("processar")]
@@ -152,6 +177,32 @@ public class CnabController : ControllerBase
 }
 ```
 
+> **Codificação:** arquivos CNAB legados costumam estar em ISO-8859-1. Se o seu estiver, abra o
+> `StreamReader` com `Encoding.Latin1` para que acentos não alterem o tamanho/posição das linhas.
+> Um BOM UTF-8 no início do arquivo é ignorado automaticamente.
+
+### Console
+
+```bash
+dotnet add package Rkd.Cnab
+dotnet add package Microsoft.Extensions.Configuration.Json
+```
+
+```csharp
+using Microsoft.Extensions.Configuration;
+using Rkd.Cnab;
+
+var configuration = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json", optional: false)
+    .Build();
+
+var converter = new CnabConverter(configuration);
+
+var resultado = converter.Convert(File.ReadAllText("extrato.rem"), "CNAB240_Extrato_Conta_Corrente");
+
+Console.WriteLine($"{resultado.Message} ({resultado.TotalErros} erro(s) em {resultado.TotalLinhas} linha(s))");
+```
+
 ---
 
 ## 📄 Estrutura da Resposta
@@ -169,7 +220,7 @@ O método `Convert` retorna um objeto **`CnabResponse`**:
   "data": {
     "headerArquivo": [{ "codigoBanco": "001", "empresaNome": "EMPRESA TESTE" }],
     "detalheSegmentoE": [
-      { "dataLancamento": "20240131", "valorLancamento": "00000000150000" }
+      { "dataLancamento": "20240131", "valorLancamento": "000000000000150000" }
     ]
   },
   "erros": [
@@ -185,7 +236,7 @@ O método `Convert` retorna um objeto **`CnabResponse`**:
 
 - **Success**
   - `true`: processamento ocorreu normalmente.
-  - `false`: erro estrutural (layout inexistente, configuração inválida).
+  - `false`: erro estrutural em tempo de execução (conteúdo vazio, layout inexistente). Layout mal configurado não chega aqui: falha na criação do `CnabConverter`.
 
 - **CompletelyConverted**
   - `true`: todas as linhas foram reconhecidas.
@@ -214,7 +265,11 @@ A biblioteca acompanha uma suíte de testes **rápida e determinística**, basea
 
 - Configuração em memória
 - Zero IO
-- Foco em contratos e comportamento
+- Foco em contratos e comportamento (conversão, erros por linha e validação do layout)
+
+```bash
+dotnet test
+```
 
 Ideal para CI/CD.
 
@@ -222,4 +277,4 @@ Ideal para CI/CD.
 
 ## 📝 Licença
 
-Distribuído sob a licença **MIT**. Consulte o arquivo `LICENSE` para mais informações.
+Distribuído sob a licença **MIT**. Consulte o arquivo [LICENSE](https://github.com/rkdcoder/Rkd.Cnab/blob/master/LICENSE) para mais informações.
